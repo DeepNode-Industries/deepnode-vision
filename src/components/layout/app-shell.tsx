@@ -66,10 +66,13 @@ export function AppShell({ children }: AppShellProps) {
         </footer>
       </div>
 
-      {/* Mobile bottom navigation bar */}
+      {/* Mobile bottom navigation bar — padding-bottom accounts for Android gesture nav bar */}
       <nav className="fixed bottom-0 left-0 right-0 lg:hidden z-40">
         {/* Glass bar */}
-        <div className="border-t border-white/10 bg-dark-950/95 backdrop-blur-xl">
+        <div
+          className="border-t border-white/10 bg-dark-950/95 backdrop-blur-xl"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
           <div className="flex items-center justify-around px-1 py-1">
             {BOTTOM_NAV.map(({ href, icon: Icon, label, highlight }) => {
               const active = pathname === href || pathname.startsWith(href + '/')
@@ -114,8 +117,8 @@ export function AppShell({ children }: AppShellProps) {
               )
             })}
           </div>
-          {/* Footer credit in bottom nav */}
-          <div className="pb-2 text-center">
+          {/* Footer credit */}
+          <div className="pb-1 text-center">
             <p className="text-[9px] text-slate-700 tracking-wide">DeepNode Industries © 2026</p>
           </div>
         </div>

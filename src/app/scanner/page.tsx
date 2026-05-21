@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ScanLine, Download, Save, RefreshCw, Brain, Camera, Upload, ChevronDown, ChevronUp } from 'lucide-react'
+import { ScanLine, Download, Save, RefreshCw, Brain, Camera, Upload, ChevronDown } from 'lucide-react'
 import { AppShell } from '@/components/layout/app-shell'
 import { UploadZone } from '@/components/vision/upload-zone'
 import { DocumentPreview } from '@/components/vision/document-preview'
@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useVisionStore, INITIAL_TIMELINE } from '@/store/vision-store'
 import { analyzeDocument } from '@/lib/vision-engine'
 import { exportAnalysisJSON } from '@/lib/storage'
+import { isNativePlatform, takePicture, pickFromGallery, hapticTap } from '@/lib/native-camera'
 
 const STEP_SEQUENCE = [
   { stepId: 'upload', progressStatus: 'uploading' },
@@ -30,13 +31,15 @@ export default function ScannerPage() {
     setTimelineSteps, updateTimelineStep, addAnalysis,
   } = useVisionStore()
 
-  // Camera input ref for mobile
+  // Camera input ref for web fallback
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Mobile accordion state for results section
   const [resultsOpen, setResultsOpen] = useState(true)
   const [timelineOpen, setTimelineOpen] = useState(false)
+  const [cameraLoading, setCameraLoading] = useState(false)
+  const [galleryLoading, setGalleryLoading] = useState(false)
 
   useEffect(() => {
     return () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }
@@ -53,12 +56,41 @@ export default function ScannerPage() {
     setResultsOpen(true)
   }, [previewUrl, setUploadedFile, setPreviewUrl, setAnalysisStatus, setCurrentAnalysis, setTimelineSteps])
 
+  // Web fallback: handle <input type="file"> change
   const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) handleFileAccepted(file)
-    // Reset input so same file can be selected again
     if (e.target) e.target.value = ''
   }
+
+  // Native camera — uses @capacitor/camera on Android/iOS, HTML input on web
+  const handleTakePhoto = useCallback(async () => {
+    setCameraLoading(true)
+    try {
+      if (await isNativePlatform()) {
+        const file = await takePicture()
+        if (file) handleFileAccepted(file)
+      } else {
+        cameraInputRef.current?.click()
+      }
+    } finally {
+      setCameraLoading(false)
+    }
+  }, [handleFileAccepted])
+
+  const handlePickGallery = useCallback(async () => {
+    setGalleryLoading(true)
+    try {
+      if (await isNativePlatform()) {
+        const file = await pickFromGallery()
+        if (file) handleFileAccepted(file)
+      } else {
+        fileInputRef.current?.click()
+      }
+    } finally {
+      setGalleryLoading(false)
+    }
+  }, [handleFileAccepted])
 
   const handleAnalyze = useCallback(async () => {
     if (!uploadedFile) return
@@ -88,6 +120,11 @@ export default function ScannerPage() {
     setAnalysisStatus('complete')
     setResultsOpen(true)
   }, [uploadedFile, setAnalysisStatus, setCurrentAnalysis, setTimelineSteps, updateTimelineStep, addAnalysis])
+
+  const handleAnalyzeWithHaptic = useCallback(async () => {
+    await hapticTap()
+    handleAnalyze()
+  }, [handleAnalyze])
 
   const handleReset = useCallback(() => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -145,24 +182,32 @@ export default function ScannerPage() {
           )}
         </div>
 
-        {/* ── MOBILE: mobile-first camera buttons ── */}
+        {/* ── MOBILE: native camera / gallery buttons ── */}
         {!uploadedFile && (
           <div className="lg:hidden grid grid-cols-2 gap-3">
             <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => cameraInputRef.current?.click()}
-              className="flex flex-col items-center gap-2 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-5 text-cyan-400 active:bg-cyan-500/20 transition-all"
+              whileTap={{ scale: 0.94 }}
+              onClick={handleTakePhoto}
+              disabled={cameraLoading}
+              className="flex flex-col items-center gap-2.5 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-5 text-cyan-400 active:bg-cyan-500/20 transition-all disabled:opacity-50"
             >
-              <Camera className="w-8 h-8" />
+              {cameraLoading
+                ? <div className="w-8 h-8 rounded-full border-2 border-cyan-400/30 border-t-cyan-400 animate-spin" />
+                : <Camera className="w-8 h-8" />
+              }
               <span className="text-sm font-semibold">Take Photo</span>
               <span className="text-xs text-cyan-400/60">Use camera</span>
             </motion.button>
             <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center gap-2 rounded-2xl border border-violet-500/30 bg-violet-500/10 p-5 text-violet-400 active:bg-violet-500/20 transition-all"
+              whileTap={{ scale: 0.94 }}
+              onClick={handlePickGallery}
+              disabled={galleryLoading}
+              className="flex flex-col items-center gap-2.5 rounded-2xl border border-violet-500/30 bg-violet-500/10 p-5 text-violet-400 active:bg-violet-500/20 transition-all disabled:opacity-50"
             >
-              <Upload className="w-8 h-8" />
+              {galleryLoading
+                ? <div className="w-8 h-8 rounded-full border-2 border-violet-400/30 border-t-violet-400 animate-spin" />
+                : <Upload className="w-8 h-8" />
+              }
               <span className="text-sm font-semibold">Upload File</span>
               <span className="text-xs text-violet-400/60">Gallery or PDF</span>
             </motion.button>
@@ -200,15 +245,16 @@ export default function ScannerPage() {
                 {uploadedFile && (
                   <div className="mt-3 lg:hidden grid grid-cols-2 gap-2">
                     <button
-                      onClick={() => cameraInputRef.current?.click()}
-                      className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs text-slate-400 active:bg-white/10"
+                      onClick={handleTakePhoto}
+                      disabled={cameraLoading}
+                      className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 py-3 text-xs text-slate-400 active:bg-white/10 transition-all"
                     >
                       <Camera className="w-4 h-4" />
                       Retake
                     </button>
                     <button
                       onClick={handleReset}
-                      className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs text-slate-400 active:bg-white/10"
+                      className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 py-3 text-xs text-slate-400 active:bg-white/10 transition-all"
                     >
                       <RefreshCw className="w-4 h-4" />
                       Clear
@@ -236,7 +282,7 @@ export default function ScannerPage() {
                   <Button
                     size="lg"
                     className="w-full text-base py-4 lg:py-3"
-                    onClick={handleAnalyze}
+                    onClick={handleAnalyzeWithHaptic}
                     loading={isAnalyzing}
                     disabled={isAnalyzing}
                   >
