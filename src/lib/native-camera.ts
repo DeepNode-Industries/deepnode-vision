@@ -1,105 +1,108 @@
 /**
- * Native camera helpers for Capacitor Android/iOS.
- * Falls back gracefully on web — callers must trigger HTML <input> instead.
+ * Native camera / file picker — wraps expo-image-picker and expo-document-picker.
+ * Returns File-compatible objects for use with the vision engine.
  */
+import * as ImagePicker from 'expo-image-picker'
+import * as DocumentPicker from 'expo-document-picker'
+import * as Haptics from 'expo-haptics'
 
-/** Returns true when running inside a Capacitor native app */
-export async function isNativePlatform(): Promise<boolean> {
-  if (typeof window === 'undefined') return false
-  try {
-    const { Capacitor } = await import('@capacitor/core')
-    return Capacitor.isNativePlatform()
-  } catch {
-    return false
+export interface NativeAsset {
+  uri: string
+  name: string
+  size: number
+  type: string
+}
+
+/** Open native camera to capture a photo */
+export async function takePicture(): Promise<NativeAsset | null> {
+  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+
+  const permission = await ImagePicker.requestCameraPermissionsAsync()
+  if (!permission.granted) return null
+
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    quality: 0.88,
+    allowsEditing: false,
+    exif: false,
+  })
+
+  if (result.canceled || !result.assets[0]) return null
+
+  const asset = result.assets[0]
+  return {
+    uri: asset.uri,
+    name: `photo_${Date.now()}.jpg`,
+    size: asset.fileSize ?? 500_000,
+    type: asset.mimeType ?? 'image/jpeg',
   }
 }
 
-/** Request camera + photo library permissions. Call once before first use. */
-export async function requestCameraPermissions(): Promise<boolean> {
-  try {
-    const { Camera } = await import('@capacitor/camera')
-    const status = await Camera.requestPermissions({ permissions: ['camera', 'photos'] })
-    return status.camera === 'granted' && status.photos !== 'denied'
-  } catch {
-    return false
+/** Open native photo library */
+export async function pickFromGallery(): Promise<NativeAsset | null> {
+  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+  if (!permission.granted) return null
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    quality: 0.88,
+    allowsEditing: false,
+    exif: false,
+  })
+
+  if (result.canceled || !result.assets[0]) return null
+
+  const asset = result.assets[0]
+  return {
+    uri: asset.uri,
+    name: asset.fileName ?? `image_${Date.now()}.jpg`,
+    size: asset.fileSize ?? 300_000,
+    type: asset.mimeType ?? 'image/jpeg',
+  }
+}
+
+/** Open document picker (PDF / any file) */
+export async function pickDocument(): Promise<NativeAsset | null> {
+  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+
+  const result = await DocumentPicker.getDocumentAsync({
+    type: ['image/*', 'application/pdf'],
+    copyToCacheDirectory: true,
+  })
+
+  if (result.canceled || !result.assets[0]) return null
+
+  const asset = result.assets[0]
+  return {
+    uri: asset.uri,
+    name: asset.name,
+    size: asset.size ?? 200_000,
+    type: asset.mimeType ?? 'application/octet-stream',
   }
 }
 
 /**
- * Open the native camera and return the captured image as a File.
- * Returns null if user cancels or if an error occurs.
+ * Convert a NativeAsset to a File object for the vision engine.
+ * The vision engine only reads .name, .size, .type — no actual file read.
  */
-export async function takePicture(): Promise<File | null> {
-  try {
-    const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera')
-    const { Haptics, ImpactStyle } = await import('@capacitor/haptics')
-
-    await Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {})
-
-    const photo = await Camera.getPhoto({
-      quality: 88,
-      allowEditing: false,
-      resultType: CameraResultType.Uri,
-      source: CameraSource.Camera,
-      saveToGallery: false,
-      presentationStyle: 'fullscreen',
-      correctOrientation: true,
-    })
-
-    return await uriToFile(photo.webPath, 'photo')
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    // Suppress user-cancel noise
-    if (!msg.includes('cancel') && !msg.includes('dismissed')) {
-      console.error('[DeepNode] Camera error:', e)
-    }
-    return null
-  }
+export function nativeAssetToFile(asset: NativeAsset): File {
+  return {
+    name: asset.name,
+    size: asset.size,
+    type: asset.type,
+    // Minimal stubs — vision engine never reads file bytes in simulation mode
+    lastModified: Date.now(),
+    arrayBuffer: async () => new ArrayBuffer(0),
+    text: async () => '',
+    slice: () => new Blob(),
+    stream: () => new ReadableStream(),
+    webkitRelativePath: '',
+  } as unknown as File
 }
 
-/**
- * Open the native photo library and return the selected image as a File.
- * Returns null if user cancels or if an error occurs.
- */
-export async function pickFromGallery(): Promise<File | null> {
-  try {
-    const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera')
-    const { Haptics, ImpactStyle } = await import('@capacitor/haptics')
-
-    await Haptics.impact({ style: ImpactStyle.Light }).catch(() => {})
-
-    const photo = await Camera.getPhoto({
-      quality: 88,
-      allowEditing: false,
-      resultType: CameraResultType.Uri,
-      source: CameraSource.Photos,
-      correctOrientation: true,
-    })
-
-    return await uriToFile(photo.webPath, 'image')
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    if (!msg.includes('cancel') && !msg.includes('dismissed')) {
-      console.error('[DeepNode] Gallery error:', e)
-    }
-    return null
-  }
-}
-
-/** Light haptic tap — use on important button presses for native feel */
+/** Light haptic tap */
 export async function hapticTap(): Promise<void> {
-  try {
-    const { Haptics, ImpactStyle } = await import('@capacitor/haptics')
-    await Haptics.impact({ style: ImpactStyle.Light })
-  } catch {}
-}
-
-// ─── helpers ──────────────────────────────────────────────────────────────────
-
-async function uriToFile(webPath: string | undefined, prefix: string): Promise<File | null> {
-  if (!webPath) return null
-  const response = await fetch(webPath)
-  const blob = await response.blob()
-  const ext = blob.type === 'image/png' ? 'png' : 'jpg'
-  return new File([blob], `${prefix}_${Date.now()}.${ext}`, { type: blob.type || 'image/jpeg' })
+  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
 }

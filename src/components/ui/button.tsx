@@ -1,51 +1,126 @@
-'use client'
-
-import { forwardRef } from 'react'
+import { TouchableOpacity, Text, View, ActivityIndicator, StyleSheet } from 'react-native'
 import { cn } from '@/lib/utils'
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline'
+interface ButtonProps {
+  children: React.ReactNode
+  onPress?: () => void
+  variant?: 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
+  disabled?: boolean
+  className?: string
+  style?: object
+  fullWidth?: boolean
 }
 
-const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', loading, children, disabled, ...props }, ref) => {
-    const base = 'inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-900 disabled:opacity-50 disabled:cursor-not-allowed select-none'
+export function Button({
+  children,
+  onPress,
+  variant = 'primary',
+  size = 'md',
+  loading,
+  disabled,
+  className,
+  style,
+  fullWidth,
+}: ButtonProps) {
+  const isDisabled = disabled || loading
 
-    const variants = {
-      primary: 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-neon-cyan hover:shadow-neon-cyan-lg focus:ring-cyan-500',
-      secondary: 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white focus:ring-violet-500',
-      ghost: 'bg-transparent hover:bg-white/5 text-slate-300 hover:text-white border border-white/10 hover:border-white/20 focus:ring-white/20',
-      danger: 'bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 hover:border-red-500/50 focus:ring-red-500',
-      outline: 'bg-transparent border border-cyan-500/40 hover:border-cyan-500 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 focus:ring-cyan-500',
-    }
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={isDisabled}
+      activeOpacity={0.75}
+      style={[
+        styles.base,
+        styles[variant],
+        styles[`size_${size}`],
+        fullWidth && styles.fullWidth,
+        isDisabled && styles.disabled,
+        style,
+      ]}
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={variant === 'primary' ? '#fff' : '#06b6d4'} />
+      ) : (
+        <View style={styles.content}>
+          {children}
+        </View>
+      )}
+    </TouchableOpacity>
+  )
+}
 
-    const sizes = {
-      sm: 'px-3 py-1.5 text-xs',
-      md: 'px-4 py-2 text-sm',
-      lg: 'px-6 py-3 text-base',
-    }
+// Text wrapper for button labels
+export function BtnText({ children, variant = 'primary', size = 'md' }: { children: React.ReactNode; variant?: string; size?: string }) {
+  return (
+    <Text style={[
+      styles.text,
+      variant === 'primary' && styles.textPrimary,
+      variant === 'ghost' && styles.textGhost,
+      variant === 'outline' && styles.textOutline,
+      variant === 'danger' && styles.textDanger,
+      size === 'sm' && styles.textSm,
+      size === 'lg' && styles.textLg,
+    ]}>
+      {children}
+    </Text>
+  )
+}
 
-    return (
-      <button
-        ref={ref}
-        className={cn(base, variants[variant], sizes[size], className)}
-        disabled={disabled || loading}
-        {...props}
-      >
-        {loading && (
-          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        )}
-        {children}
-      </button>
-    )
-  }
-)
+const styles = StyleSheet.create({
+  base: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fullWidth: { width: '100%' },
+  disabled: { opacity: 0.45 },
 
-Button.displayName = 'Button'
+  // Variants
+  primary: {
+    backgroundColor: '#0891b2',
+    borderColor: '#06b6d4',
+  },
+  secondary: {
+    backgroundColor: 'rgba(139,92,246,0.15)',
+    borderColor: 'rgba(139,92,246,0.4)',
+  },
+  ghost: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  outline: {
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(6,182,212,0.4)',
+  },
+  danger: {
+    backgroundColor: 'rgba(239,68,68,0.15)',
+    borderColor: 'rgba(239,68,68,0.4)',
+  },
 
-export { Button }
+  // Sizes
+  size_sm: { paddingHorizontal: 12, paddingVertical: 7 },
+  size_md: { paddingHorizontal: 16, paddingVertical: 11 },
+  size_lg: { paddingHorizontal: 20, paddingVertical: 15 },
+
+  // Text
+  text: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 14,
+    color: '#e2e8f0',
+  },
+  textPrimary: { color: '#ffffff' },
+  textGhost: { color: '#94a3b8' },
+  textOutline: { color: '#22d3ee' },
+  textDanger: { color: '#f87171' },
+  textSm: { fontSize: 12 },
+  textLg: { fontSize: 16 },
+})

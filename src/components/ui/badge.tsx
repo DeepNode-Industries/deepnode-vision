@@ -1,59 +1,73 @@
-import { cn } from '@/lib/utils'
+import { View, Text, StyleSheet } from 'react-native'
 
-type BadgeVariant = 'cyan' | 'purple' | 'green' | 'yellow' | 'red' | 'slate' | 'blue' | 'pink'
+type BadgeVariant = 'default' | 'cyan' | 'purple' | 'emerald' | 'amber' | 'red' | 'slate'
 
-interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+interface BadgeProps {
+  children: React.ReactNode
   variant?: BadgeVariant
   dot?: boolean
 }
 
-const variantStyles: Record<BadgeVariant, string> = {
-  cyan: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
-  purple: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
-  green: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  yellow: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  red: 'bg-red-500/15 text-red-400 border-red-500/30',
-  slate: 'bg-slate-500/15 text-slate-400 border-slate-500/30',
-  blue: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
-  pink: 'bg-pink-500/15 text-pink-400 border-pink-500/30',
-}
-
-const dotColors: Record<BadgeVariant, string> = {
-  cyan: 'bg-cyan-400',
-  purple: 'bg-violet-400',
-  green: 'bg-emerald-400',
-  yellow: 'bg-amber-400',
-  red: 'bg-red-400',
-  slate: 'bg-slate-400',
-  blue: 'bg-blue-400',
-  pink: 'bg-pink-400',
-}
-
-export function Badge({ variant = 'slate', dot = false, className, children, ...props }: BadgeProps) {
+export function Badge({ children, variant = 'default', dot }: BadgeProps) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border',
-        variantStyles[variant],
-        className
-      )}
-      {...props}
-    >
-      {dot && <span className={cn('w-1.5 h-1.5 rounded-full', dotColors[variant])} />}
-      {children}
-    </span>
+    <View style={[styles.base, styles[variant]]}>
+      {dot && <View style={[styles.dot, styles[`dot_${variant}`]]} />}
+      <Text style={[styles.text, styles[`text_${variant}`]]}>{children}</Text>
+    </View>
   )
 }
 
 export function ConfidenceBadge({ confidence }: { confidence: number }) {
-  const variant: BadgeVariant =
-    confidence >= 90 ? 'green' : confidence >= 75 ? 'cyan' : confidence >= 60 ? 'yellow' : 'red'
-  const label =
-    confidence >= 90 ? 'High' : confidence >= 75 ? 'Good' : confidence >= 60 ? 'Moderate' : 'Low'
-
+  const variant = confidence >= 90 ? 'emerald' : confidence >= 70 ? 'cyan' : confidence >= 50 ? 'amber' : 'red'
   return (
-    <Badge variant={variant} dot>
-      {label} · {confidence}%
+    <Badge variant={variant}>
+      {confidence}%
     </Badge>
   )
 }
+
+const styles = StyleSheet.create({
+  base: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  text: {
+    fontSize: 11,
+    fontFamily: 'Inter-SemiBold',
+  },
+
+  default: { backgroundColor: 'rgba(30,41,59,0.8)', borderColor: 'rgba(255,255,255,0.1)' },
+  cyan: { backgroundColor: 'rgba(6,182,212,0.12)', borderColor: 'rgba(6,182,212,0.3)' },
+  purple: { backgroundColor: 'rgba(139,92,246,0.12)', borderColor: 'rgba(139,92,246,0.3)' },
+  emerald: { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.3)' },
+  amber: { backgroundColor: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.3)' },
+  red: { backgroundColor: 'rgba(239,68,68,0.12)', borderColor: 'rgba(239,68,68,0.3)' },
+  slate: { backgroundColor: 'rgba(100,116,139,0.12)', borderColor: 'rgba(100,116,139,0.3)' },
+
+  text_default: { color: '#94a3b8' },
+  text_cyan: { color: '#22d3ee' },
+  text_purple: { color: '#a78bfa' },
+  text_emerald: { color: '#34d399' },
+  text_amber: { color: '#fbbf24' },
+  text_red: { color: '#f87171' },
+  text_slate: { color: '#94a3b8' },
+
+  dot_default: { backgroundColor: '#64748b' },
+  dot_cyan: { backgroundColor: '#06b6d4' },
+  dot_purple: { backgroundColor: '#8b5cf6' },
+  dot_emerald: { backgroundColor: '#10b981' },
+  dot_amber: { backgroundColor: '#f59e0b' },
+  dot_red: { backgroundColor: '#ef4444' },
+  dot_slate: { backgroundColor: '#64748b' },
+})

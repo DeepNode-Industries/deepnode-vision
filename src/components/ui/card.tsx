@@ -1,46 +1,83 @@
-import { cn } from '@/lib/utils'
+import { View, Text, StyleSheet } from 'react-native'
 
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface CardProps {
+  children: React.ReactNode
   glow?: 'cyan' | 'purple' | 'none'
-  hoverable?: boolean
+  style?: object
 }
 
-export function Card({ className, glow = 'none', hoverable = false, ...props }: CardProps) {
+export function Card({ children, glow = 'none', style }: CardProps) {
   return (
-    <div
-      className={cn(
-        'rounded-2xl border border-white/10 bg-dark-900/60 backdrop-blur-sm',
-        glow === 'cyan' && 'border-cyan-500/20 shadow-neon-cyan',
-        glow === 'purple' && 'border-violet-500/20 shadow-neon-purple',
-        hoverable && 'transition-all duration-300 hover:border-cyan-500/30 hover:shadow-neon-cyan cursor-pointer',
-        className
-      )}
-      {...props}
-    />
+    <View style={[
+      styles.card,
+      glow === 'cyan' && styles.glowCyan,
+      glow === 'purple' && styles.glowPurple,
+      style,
+    ]}>
+      {children}
+    </View>
   )
 }
 
-export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('p-6 pb-0', className)} {...props} />
+export function CardHeader({ children, style }: { children: React.ReactNode; style?: object }) {
+  return <View style={[styles.header, style]}>{children}</View>
 }
 
-export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('p-6', className)} {...props} />
+export function CardContent({ children, style }: { children: React.ReactNode; style?: object }) {
+  return <View style={[styles.content, style]}>{children}</View>
 }
 
-export function CardFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('px-6 pb-6 pt-0', className)} {...props} />
+export function CardTitle({ children, style }: { children: React.ReactNode; style?: object }) {
+  return <Text style={[styles.title, style]}>{children}</Text>
 }
 
-export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return (
-    <h3
-      className={cn('font-display text-lg font-semibold text-white leading-tight', className)}
-      {...props}
-    />
-  )
+export function CardDescription({ children }: { children: React.ReactNode }) {
+  return <Text style={styles.description}>{children}</Text>
 }
 
-export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn('text-sm text-slate-400 mt-1', className)} {...props} />
-}
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: 'rgba(15,23,42,0.8)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  glowCyan: {
+    borderColor: 'rgba(6,182,212,0.3)',
+    shadowColor: '#06b6d4',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  glowPurple: {
+    borderColor: 'rgba(139,92,246,0.3)',
+    shadowColor: '#8b5cf6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  content: {
+    padding: 16,
+  },
+  title: {
+    fontFamily: 'SpaceGrotesk-SemiBold',
+    fontSize: 14,
+    color: '#f1f5f9',
+  },
+  description: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+})

@@ -1,7 +1,6 @@
-'use client'
-
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { VisionAnalysisResult, AnalysisStatus, TimelineStep } from '@/lib/types'
 
 interface VisionStoreState {
@@ -9,8 +8,7 @@ interface VisionStoreState {
   currentAnalysis: VisionAnalysisResult | null
   analysisStatus: AnalysisStatus
   timelineSteps: TimelineStep[]
-  uploadedFile: File | null
-  previewUrl: string | null
+  currentUri: string | null   // image URI (replaces previewUrl / File)
 
   addAnalysis: (analysis: VisionAnalysisResult) => void
   removeAnalysis: (id: string) => void
@@ -18,12 +16,11 @@ interface VisionStoreState {
   setAnalysisStatus: (status: AnalysisStatus) => void
   setTimelineSteps: (steps: TimelineStep[]) => void
   updateTimelineStep: (id: string, updates: Partial<TimelineStep>) => void
-  setUploadedFile: (file: File | null) => void
-  setPreviewUrl: (url: string | null) => void
+  setCurrentUri: (uri: string | null) => void
   clearHistory: () => void
 }
 
-const INITIAL_TIMELINE: TimelineStep[] = [
+export const INITIAL_TIMELINE: TimelineStep[] = [
   { id: 'upload', label: 'File Upload', status: 'pending' },
   { id: 'scan', label: 'Document Scan', status: 'pending' },
   { id: 'extract', label: 'Text Extraction (OCR)', status: 'pending' },
@@ -38,45 +35,35 @@ export const useVisionStore = create<VisionStoreState>()(
       currentAnalysis: null,
       analysisStatus: 'idle',
       timelineSteps: INITIAL_TIMELINE,
-      uploadedFile: null,
-      previewUrl: null,
+      currentUri: null,
 
       addAnalysis: (analysis) =>
-        set((state) => ({
-          analyses: [analysis, ...state.analyses].slice(0, 100),
-        })),
+        set((s) => ({ analyses: [analysis, ...s.analyses].slice(0, 100) })),
 
       removeAnalysis: (id) =>
-        set((state) => ({
-          analyses: state.analyses.filter((a) => a.id !== id),
-          currentAnalysis: state.currentAnalysis?.id === id ? null : state.currentAnalysis,
+        set((s) => ({
+          analyses: s.analyses.filter((a) => a.id !== id),
+          currentAnalysis: s.currentAnalysis?.id === id ? null : s.currentAnalysis,
         })),
 
       setCurrentAnalysis: (analysis) => set({ currentAnalysis: analysis }),
-
       setAnalysisStatus: (status) => set({ analysisStatus: status }),
-
       setTimelineSteps: (steps) => set({ timelineSteps: steps }),
 
       updateTimelineStep: (id, updates) =>
-        set((state) => ({
-          timelineSteps: state.timelineSteps.map((step) =>
+        set((s) => ({
+          timelineSteps: s.timelineSteps.map((step) =>
             step.id === id ? { ...step, ...updates } : step
           ),
         })),
 
-      setUploadedFile: (file) => set({ uploadedFile: file }),
-
-      setPreviewUrl: (url) => set({ previewUrl: url }),
-
+      setCurrentUri: (uri) => set({ currentUri: uri }),
       clearHistory: () => set({ analyses: [], currentAnalysis: null }),
     }),
     {
       name: 'dnv-vision-store',
-      // Only persist analyses — not transient state
-      partialize: (state) => ({ analyses: state.analyses }),
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (s) => ({ analyses: s.analyses }),
     }
   )
 )
-
-export { INITIAL_TIMELINE }

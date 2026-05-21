@@ -1,31 +1,19 @@
 # DeepNode Vision
 
-AI-powered document intelligence platform built with Next.js 14. Extract, classify, and validate documents in real-time with a futuristic dark UI — fully functional in demo mode without any API keys.
+AI-powered document intelligence platform built with **React Native + Expo SDK 52**. Extract, classify, and validate documents in real-time with a futuristic dark UI — fully functional in demo mode without any API keys.
 
 ---
 
 ## Features
 
-- **AI Scanner** — Upload or photograph documents; simulated OCR + field extraction
-- **Camera Capture** — Direct rear-camera access on mobile via `capture="environment"`
+- **AI Scanner** — Photograph or pick documents; simulated OCR + field extraction
+- **Native Camera** — Direct rear-camera via `expo-image-picker`; gallery + PDF support
 - **Document History** — Persistent analysis log with search, export, and delete
 - **Analytics** — 14-day usage charts, document type breakdown, confidence metrics
 - **Templates** — 8 pre-built extractors (invoice, ID, contract, receipt, medical, legal, financial, form)
 - **Multi-provider Architecture** — Swap AI backends without touching application code
 - **Demo Mode** — Realistic simulated analysis with no real API calls required
-- **Document Types** — Invoice, Receipt, Payment, Vehicle Plate, Contract, ID, CFDI, Product Image
-
----
-
-## Mobile
-
-- Bottom navigation bar (5 tabs)
-- Slide-in drawer sidebar
-- **"Take Photo"** button using `capture="environment"` for direct rear camera
-- **"Upload File"** button for gallery / file picker
-- Collapsible results panels with accordion animation
-- Large touch targets throughout (`py-4` on primary actions)
-- Tested on iPhone SE, iPhone 15, Android, and tablets
+- **Haptic Feedback** — Native haptics on every interaction
 
 ---
 
@@ -33,21 +21,23 @@ AI-powered document intelligence platform built with Next.js 14. Extract, classi
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 14 (App Router) |
+| Framework | Expo SDK 52 + React Native 0.76 |
+| Routing | Expo Router v4 (file-based) |
 | Language | TypeScript (strict) |
-| Styling | Tailwind CSS v3 (custom cyber theme) |
-| Animation | Framer Motion |
-| State | Zustand + persist middleware |
-| Charts | Recharts |
-| Icons | Lucide React |
-| Upload | React Dropzone |
-| Fonts | Space Grotesk + Inter (next/font/google) |
+| Styling | NativeWind v4 (Tailwind for RN) |
+| Animation | React Native Reanimated v3 |
+| Charts | Custom SVG (react-native-svg) |
+| State | Zustand + AsyncStorage persistence |
+| Icons | lucide-react-native |
+| Fonts | Space Grotesk + Inter (expo-google-fonts) |
+| Haptics | expo-haptics |
+| Build | EAS Build |
 
 ---
 
 ## AI Provider Support
 
-The platform ships with a clean `VisionProvider` interface (`src/lib/providers.ts`). Configure any provider via Settings:
+The platform ships with a clean `VisionProvider` interface (`src/lib/providers.ts`):
 
 | Provider | Key(s) |
 |---|---|
@@ -66,14 +56,15 @@ The platform ships with a clean `VisionProvider` interface (`src/lib/providers.t
 # Install dependencies
 npm install
 
-# Start dev server
-npm run dev
+# Start Expo dev server
+npm start
 
-# Build for production
-npm run build
+# Run on Android
+npm run android
+
+# Run on iOS
+npm run ios
 ```
-
-Open [http://localhost:3000](http://localhost:3000).
 
 Copy `.env.example` to `.env.local` and add API keys to activate real providers:
 
@@ -83,34 +74,54 @@ cp .env.example .env.local
 
 ---
 
+## Build Android APK (EAS)
+
+```bash
+# Install EAS CLI
+npm install -g eas-cli
+
+# Log in to Expo account
+eas login
+
+# Build preview APK
+eas build -p android --profile preview
+
+# Build production AAB (Play Store)
+eas build -p android --profile production
+```
+
+---
+
 ## Project Structure
 
 ```
+app/
+├── _layout.tsx               # Root layout (fonts, SafeArea, Stack)
+├── (tabs)/
+│   ├── _layout.tsx           # Custom tab bar
+│   ├── index.tsx             # Dashboard
+│   ├── scanner.tsx           # Camera + analysis (core screen)
+│   ├── documents.tsx         # History & search
+│   ├── analytics.tsx         # Charts & metrics
+│   └── settings.tsx          # Provider config
+├── templates.tsx             # Pre-built extractors (modal)
+└── about.tsx                 # App info (modal)
+
 src/
-├── app/                      # Next.js App Router pages
-│   ├── page.tsx              # Landing page
-│   ├── dashboard/            # Metrics + charts
-│   ├── scanner/              # Camera + upload + analysis
-│   ├── documents/            # History & search
-│   ├── analytics/            # 14-day trend charts
-│   ├── templates/            # Pre-built extractors
-│   ├── settings/             # Provider config
-│   └── about/                # App info + tech stack
 ├── components/
-│   ├── layout/               # AppShell, Sidebar, Topbar
-│   ├── vision/               # Scanner UI components
-│   ├── dashboard/            # Metric cards, charts
-│   ├── landing/              # Hero, Features, Footer
-│   └── ui/                   # Button, Card, Badge, Input, Modal
+│   ├── vision/               # ScanAnimation, ConfidenceMeter, ExtractionPanel, Timeline
+│   ├── dashboard/            # MetricCard, UsageChart, DocumentTypeChart
+│   └── ui/                   # Button, Card, Badge
 ├── lib/
 │   ├── vision-engine.ts      # Simulation core
 │   ├── providers.ts          # AI provider interfaces
+│   ├── native-camera.ts      # expo-image-picker / expo-document-picker
 │   ├── types.ts              # TypeScript interfaces
-│   ├── storage.ts            # LocalStorage helpers
+│   ├── storage.ts            # AsyncStorage helpers
 │   ├── document-detectors.ts # File type detection
 │   └── mock-data.ts          # Demo data
 └── store/
-    └── vision-store.ts       # Zustand store
+    └── vision-store.ts       # Zustand store (AsyncStorage persist)
 ```
 
 ---
@@ -121,9 +132,9 @@ All provider interfaces are in `src/lib/providers.ts`.
 
 ### OpenAI GPT-4o Vision
 1. Set `OPENAI_API_KEY` in `.env.local`
-2. Open `OpenAIVisionProvider.analyzeDocument()` in `providers.ts`
+2. Implement `OpenAIVisionProvider.analyzeDocument()` in `providers.ts`
 3. Install: `npm install openai`
-4. Implement with `gpt-4o` + structured JSON output
+4. Send `base64` image via `gpt-4o` with structured JSON output
 
 ### Google Vision API
 1. Set `GOOGLE_VISION_API_KEY`
@@ -139,17 +150,6 @@ All provider interfaces are in `src/lib/providers.ts`.
 1. Set `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` and `AZURE_DOCUMENT_INTELLIGENCE_KEY`
 2. Implement `AzureDocumentIntelligenceProvider.analyzeDocument()`
 3. Install: `npm install @azure/ai-form-recognizer`
-
----
-
-## Deploy to Vercel
-
-```bash
-npm i -g vercel
-vercel --prod
-```
-
-Or connect via [vercel.com/import](https://vercel.com/import) — zero configuration required.
 
 ---
 

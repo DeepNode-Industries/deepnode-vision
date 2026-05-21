@@ -1,182 +1,142 @@
-'use client'
-
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Copy, Check, AlertTriangle, Lightbulb, Code2, FileText, ListChecks } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { ConfidenceBar } from './confidence-meter'
-import { DocumentClassifier } from './document-classifier'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Share } from 'react-native'
+import { Copy, FileJson, AlignLeft, Grid3x3, Sparkles } from 'lucide-react-native'
+import * as Haptics from 'expo-haptics'
 import type { VisionAnalysisResult } from '@/lib/types'
+import { ConfidenceBadge } from '@/components/ui/badge'
 
-interface ExtractionPanelProps {
-  result: VisionAnalysisResult
-}
+const TABS = [
+  { id: 'fields', label: 'Fields', icon: Grid3x3 },
+  { id: 'summary', label: 'Summary', icon: Sparkles },
+  { id: 'ocr', label: 'OCR Text', icon: AlignLeft },
+  { id: 'json', label: 'JSON', icon: FileJson },
+]
 
-type Tab = 'fields' | 'ocr' | 'json' | 'summary'
-
-export function ExtractionPanel({ result }: ExtractionPanelProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('fields')
-  const [copied, setCopied] = useState(false)
-
-  const copyJSON = async () => {
-    await navigator.clipboard.writeText(result.rawJson)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const TABS: { id: Tab; label: string; icon: typeof FileText }[] = [
-    { id: 'fields', label: 'Fields', icon: ListChecks },
-    { id: 'summary', label: 'Summary', icon: Lightbulb },
-    { id: 'ocr', label: 'OCR Text', icon: FileText },
-    { id: 'json', label: 'JSON', icon: Code2 },
-  ]
+export function ExtractionPanel({ result }: { result: VisionAnalysisResult }) {
+  const [tab, setTab] = useState('fields')
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Document type + confidence */}
-      <div className="flex items-center justify-between">
-        <DocumentClassifier
-          documentType={result.documentType}
-          confidence={result.confidence}
-          tags={result.tags}
-        />
-      </div>
-
-      <ConfidenceBar confidence={result.confidence} />
-
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-xl border border-white/10 bg-dark-800/50 p-1">
-        {TABS.map(tab => {
-          const Icon = tab.icon
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-all duration-200',
-                activeTab === tab.id
-                  ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                  : 'text-slate-500 hover:text-slate-300'
-              )}
-            >
-              <Icon className="w-3 h-3" />
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Tab content */}
-      <AnimatePresence mode="wait">
-        {activeTab === 'fields' && (
-          <motion.div
-            key="fields"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="space-y-2"
+    <View style={styles.container}>
+      {/* Tab strip */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <TouchableOpacity
+            key={id}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTab(id) }}
+            style={[styles.tab, tab === id && styles.tabActive]}
           >
-            {Object.entries(result.fields).map(([key, value]) => {
-              const field = result.extractedFields.find(f => f.key === key)
-              return (
-                <div
-                  key={key}
-                  className="flex items-start justify-between gap-3 rounded-xl border border-white/8 bg-dark-800/40 px-3 py-2.5"
-                >
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs text-slate-500 font-mono capitalize">
-                      {key.replace(/_/g, ' ')}
-                    </span>
-                    <p className="text-sm text-white font-medium truncate mt-0.5">{value}</p>
-                  </div>
-                  {field && (
-                    <span className="text-xs text-slate-600 shrink-0 font-mono">{field.confidence}%</span>
-                  )}
-                </div>
-              )
-            })}
-          </motion.div>
+            <Icon size={13} color={tab === id ? '#22d3ee' : '#64748b'} />
+            <Text style={[styles.tabLabel, tab === id && styles.tabLabelActive]}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Content */}
+      <View style={styles.content}>
+        {tab === 'fields' && (
+          <View style={styles.fieldList}>
+            {result.extractedFields.map((field) => (
+              <View key={field.key} style={styles.fieldRow}>
+                <Text style={styles.fieldKey}>{field.key.replace(/_/g, ' ')}</Text>
+                <View style={styles.fieldRight}>
+                  <Text style={styles.fieldValue} numberOfLines={2}>{field.value}</Text>
+                  <ConfidenceBadge confidence={field.confidence} />
+                </View>
+              </View>
+            ))}
+          </View>
         )}
 
-        {activeTab === 'summary' && (
-          <motion.div
-            key="summary"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="space-y-4"
-          >
-            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-              <p className="text-sm text-slate-300 leading-relaxed">{result.summary}</p>
-            </div>
-
-            {result.warnings.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-amber-400 flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  Warnings ({result.warnings.length})
-                </p>
-                {result.warnings.map((w, i) => (
-                  <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
-                    <p className="text-xs text-amber-300">{w.message}</p>
-                  </div>
+        {tab === 'summary' && (
+          <View style={styles.textBlock}>
+            <Text style={styles.summaryText}>{result.summary}</Text>
+            {result.suggestedActions.length > 0 && (
+              <View style={styles.actionsBlock}>
+                <Text style={styles.actionsTitle}>Suggested Actions</Text>
+                {result.suggestedActions.map((action, i) => (
+                  <View key={i} style={styles.actionRow}>
+                    <View style={styles.actionDot} />
+                    <Text style={styles.actionText}>{action}</Text>
+                  </View>
                 ))}
-              </div>
+              </View>
             )}
-
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-violet-400 flex items-center gap-1.5">
-                <Lightbulb className="w-3.5 h-3.5" />
-                Suggested Actions
-              </p>
-              {result.suggestedActions.map((action, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
-                  <p className="text-xs text-slate-300">{action}</p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
+          </View>
         )}
 
-        {activeTab === 'ocr' && (
-          <motion.div
-            key="ocr"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-          >
-            <div className="rounded-xl border border-white/10 bg-dark-800/60 p-4 max-h-64 overflow-y-auto">
-              <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap leading-relaxed">
-                {result.extractedText}
-              </pre>
-            </div>
-          </motion.div>
+        {tab === 'ocr' && (
+          <ScrollView style={styles.ocrScroll} nestedScrollEnabled>
+            <Text style={styles.ocrText} selectable>{result.extractedText}</Text>
+          </ScrollView>
         )}
 
-        {activeTab === 'json' && (
-          <motion.div
-            key="json"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="relative"
-          >
-            <button
-              onClick={copyJSON}
-              className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-lg border border-white/10 bg-dark-800 px-2 py-1 text-xs text-slate-400 hover:text-white transition-colors"
+        {tab === 'json' && (
+          <View>
+            <TouchableOpacity
+              style={styles.copyBtn}
+              onPress={async () => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                await Share.share({ message: result.rawJson, title: 'Analysis JSON' })
+              }}
             >
-              {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
-            <div className="rounded-xl border border-white/10 bg-dark-800/60 p-4 max-h-64 overflow-y-auto">
-              <pre className="text-xs text-emerald-400/80 font-mono whitespace-pre-wrap leading-relaxed pr-16">
-                {result.rawJson}
-              </pre>
-            </div>
-          </motion.div>
+              <Copy size={14} color="#22d3ee" />
+              <Text style={styles.copyBtnText}>Share JSON</Text>
+            </TouchableOpacity>
+            <ScrollView style={styles.jsonScroll} nestedScrollEnabled>
+              <Text style={styles.jsonText} selectable>{result.rawJson}</Text>
+            </ScrollView>
+          </View>
         )}
-      </AnimatePresence>
-    </div>
+      </View>
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  container: {},
+  tabBar: { flexDirection: 'row', marginBottom: 12 },
+  tab: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 8, marginRight: 6,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1, borderColor: 'transparent',
+  },
+  tabActive: {
+    backgroundColor: 'rgba(6,182,212,0.1)',
+    borderColor: 'rgba(6,182,212,0.3)',
+  },
+  tabLabel: { fontSize: 12, fontFamily: 'Inter-Medium', color: '#64748b' },
+  tabLabelActive: { color: '#22d3ee' },
+  content: {},
+  fieldList: { gap: 8 },
+  fieldRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingVertical: 8, paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+    gap: 12,
+  },
+  fieldKey: { fontSize: 12, fontFamily: 'Inter-Medium', color: '#64748b', flex: 1, textTransform: 'capitalize' },
+  fieldRight: { flex: 2, alignItems: 'flex-end', gap: 4 },
+  fieldValue: { fontSize: 13, fontFamily: 'Inter-SemiBold', color: '#e2e8f0', textAlign: 'right' },
+  textBlock: { gap: 12 },
+  summaryText: { fontSize: 13, fontFamily: 'Inter-Regular', color: '#94a3b8', lineHeight: 20 },
+  actionsBlock: { gap: 6, marginTop: 4 },
+  actionsTitle: { fontSize: 11, fontFamily: 'Inter-SemiBold', color: '#475569', textTransform: 'uppercase', letterSpacing: 0.8 },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  actionDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#06b6d4' },
+  actionText: { fontSize: 13, fontFamily: 'Inter-Regular', color: '#94a3b8' },
+  ocrScroll: { maxHeight: 200 },
+  ocrText: { fontSize: 12, fontFamily: 'Inter-Regular', color: '#64748b', lineHeight: 18 },
+  jsonScroll: { maxHeight: 200 },
+  jsonText: { fontSize: 11, fontFamily: 'Inter-Regular', color: '#34d399', lineHeight: 17 },
+  copyBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    alignSelf: 'flex-end', marginBottom: 8,
+    paddingHorizontal: 12, paddingVertical: 6,
+    backgroundColor: 'rgba(6,182,212,0.1)',
+    borderRadius: 8, borderWidth: 1, borderColor: 'rgba(6,182,212,0.3)',
+  },
+  copyBtnText: { fontSize: 12, fontFamily: 'Inter-SemiBold', color: '#22d3ee' },
+})

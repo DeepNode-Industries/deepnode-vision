@@ -1,88 +1,75 @@
-'use client'
-
-import { motion } from 'framer-motion'
-import { Check, Loader2, Clock, AlertCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { View, Text, StyleSheet } from 'react-native'
+import { CheckCircle2, Circle, Loader, XCircle } from 'lucide-react-native'
+import Animated, { useSharedValue, withRepeat, withTiming, useAnimatedStyle } from 'react-native-reanimated'
+import { useEffect } from 'react'
 import type { TimelineStep } from '@/lib/types'
 
-interface AnalysisTimelineProps {
-  steps: TimelineStep[]
-}
-
-export function AnalysisTimeline({ steps }: AnalysisTimelineProps) {
+function PulsingLoader() {
+  const opacity = useSharedValue(1)
+  useEffect(() => {
+    opacity.value = withRepeat(withTiming(0.3, { duration: 700 }), -1, true)
+  }, [])
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }))
   return (
-    <div className="space-y-2">
-      {steps.map((step, index) => (
-        <motion.div
-          key={step.id}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: index * 0.05 }}
-          className={cn(
-            'flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all duration-300',
-            step.status === 'complete'
-              ? 'border-emerald-500/20 bg-emerald-500/5'
-              : step.status === 'running'
-              ? 'border-cyan-500/30 bg-cyan-500/10'
-              : step.status === 'error'
-              ? 'border-red-500/20 bg-red-500/5'
-              : 'border-white/5 bg-white/2'
-          )}
-        >
-          {/* Icon */}
-          <div
-            className={cn(
-              'w-6 h-6 rounded-full flex items-center justify-center shrink-0',
-              step.status === 'complete'
-                ? 'bg-emerald-500/20'
-                : step.status === 'running'
-                ? 'bg-cyan-500/20'
-                : step.status === 'error'
-                ? 'bg-red-500/20'
-                : 'bg-white/5'
-            )}
-          >
-            {step.status === 'complete' && <Check className="w-3 h-3 text-emerald-400" />}
-            {step.status === 'running' && (
-              <Loader2 className="w-3 h-3 text-cyan-400 animate-spin" />
-            )}
-            {step.status === 'error' && <AlertCircle className="w-3 h-3 text-red-400" />}
-            {step.status === 'pending' && <Clock className="w-3 h-3 text-slate-600" />}
-          </div>
-
-          {/* Label */}
-          <span
-            className={cn(
-              'text-xs font-medium flex-1',
-              step.status === 'complete'
-                ? 'text-emerald-400'
-                : step.status === 'running'
-                ? 'text-cyan-400'
-                : step.status === 'error'
-                ? 'text-red-400'
-                : 'text-slate-600'
-            )}
-          >
-            {step.label}
-          </span>
-
-          {/* Duration */}
-          {step.duration && (
-            <span className="text-xs text-slate-600 font-mono">
-              {step.duration}ms
-            </span>
-          )}
-
-          {/* Running pulse */}
-          {step.status === 'running' && (
-            <motion.div
-              className="w-1.5 h-1.5 rounded-full bg-cyan-400"
-              animate={{ scale: [1, 1.5, 1], opacity: [0.7, 1, 0.7] }}
-              transition={{ duration: 0.8, repeat: Infinity }}
-            />
-          )}
-        </motion.div>
-      ))}
-    </div>
+    <Animated.View style={style}>
+      <Loader size={16} color="#06b6d4" />
+    </Animated.View>
   )
 }
+
+export function AnalysisTimeline({ steps }: { steps: TimelineStep[] }) {
+  return (
+    <View style={styles.container}>
+      {steps.map((step, i) => (
+        <View key={step.id} style={styles.row}>
+          <View style={styles.iconCol}>
+            {step.status === 'complete' && <CheckCircle2 size={16} color="#10b981" />}
+            {step.status === 'running' && <PulsingLoader />}
+            {step.status === 'pending' && <Circle size={16} color="#334155" />}
+            {step.status === 'error' && <XCircle size={16} color="#ef4444" />}
+            {i < steps.length - 1 && (
+              <View style={[styles.line, step.status === 'complete' && styles.lineComplete]} />
+            )}
+          </View>
+          <View style={styles.info}>
+            <Text style={[
+              styles.label,
+              step.status === 'complete' && styles.labelComplete,
+              step.status === 'running' && styles.labelRunning,
+              step.status === 'error' && styles.labelError,
+            ]}>
+              {step.label}
+            </Text>
+            {step.duration && (
+              <Text style={styles.duration}>{step.duration}ms</Text>
+            )}
+            {step.status === 'running' && (
+              <Text style={styles.running}>Processing…</Text>
+            )}
+          </View>
+        </View>
+      ))}
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: { gap: 0 },
+  row: { flexDirection: 'row', gap: 12, minHeight: 40 },
+  iconCol: { alignItems: 'center', width: 20 },
+  line: {
+    flex: 1,
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginTop: 4,
+    minHeight: 16,
+  },
+  lineComplete: { backgroundColor: 'rgba(16,185,129,0.4)' },
+  info: { flex: 1, paddingBottom: 12 },
+  label: { fontFamily: 'Inter-Medium', fontSize: 13, color: '#475569' },
+  labelComplete: { color: '#e2e8f0' },
+  labelRunning: { color: '#22d3ee' },
+  labelError: { color: '#f87171' },
+  duration: { fontSize: 11, color: '#334155', fontFamily: 'Inter-Regular', marginTop: 2 },
+  running: { fontSize: 11, color: '#0891b2', fontFamily: 'Inter-Regular', marginTop: 2 },
+})

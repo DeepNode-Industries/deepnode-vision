@@ -1,84 +1,76 @@
-'use client'
+import { useEffect } from 'react'
+import { View, StyleSheet, Dimensions } from 'react-native'
+import Animated, {
+  useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing,
+} from 'react-native-reanimated'
 
-import { motion } from 'framer-motion'
+const { width } = Dimensions.get('window')
 
-interface ScanAnimationProps {
-  active: boolean
-}
+export function ScanAnimation({ height = 200 }: { height?: number }) {
+  const translateY = useSharedValue(0)
+  const opacity = useSharedValue(0.9)
 
-export function ScanAnimation({ active }: ScanAnimationProps) {
-  if (!active) return null
+  useEffect(() => {
+    translateY.value = withRepeat(
+      withTiming(height - 2, { duration: 2000, easing: Easing.linear }),
+      -1, false
+    )
+    opacity.value = withRepeat(
+      withTiming(0.3, { duration: 1000, easing: Easing.ease }),
+      -1, true
+    )
+  }, [height])
+
+  const lineStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+    opacity: opacity.value,
+  }))
 
   return (
-    <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none z-10">
-      {/* Dark overlay with scan transparency */}
-      <div className="absolute inset-0 bg-dark-950/30" />
+    <View style={[styles.container, { height }]} pointerEvents="none">
+      {/* Corner brackets */}
+      <View style={[styles.corner, styles.topLeft]} />
+      <View style={[styles.corner, styles.topRight]} />
+      <View style={[styles.corner, styles.bottomLeft]} />
+      <View style={[styles.corner, styles.bottomRight]} />
 
       {/* Scan line */}
-      <motion.div
-        className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent"
-        style={{ boxShadow: '0 0 20px rgba(6,182,212,0.8), 0 0 40px rgba(6,182,212,0.4)' }}
-        animate={{ top: ['0%', '100%'] }}
-        transition={{
-          duration: 1.8,
-          repeat: Infinity,
-          ease: 'linear',
-        }}
-      />
+      <Animated.View style={[styles.scanLine, lineStyle]} />
 
-      {/* Scan glow below line */}
-      <motion.div
-        className="absolute left-0 right-0 h-24 bg-gradient-to-b from-cyan-400/10 to-transparent"
-        animate={{ top: ['0%', '100%'] }}
-        transition={{
-          duration: 1.8,
-          repeat: Infinity,
-          ease: 'linear',
-        }}
-      />
-
-      {/* Corner brackets */}
-      {[
-        { top: '8px', left: '8px', borderTop: true, borderLeft: true },
-        { top: '8px', right: '8px', borderTop: true, borderRight: true },
-        { bottom: '8px', left: '8px', borderBottom: true, borderLeft: true },
-        { bottom: '8px', right: '8px', borderBottom: true, borderRight: true },
-      ].map((corner, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-6 h-6"
-          style={{
-            top: corner.top,
-            left: corner.left,
-            right: corner.right,
-            bottom: corner.bottom,
-            borderTop: corner.borderTop ? '2px solid #22d3ee' : undefined,
-            borderLeft: corner.borderLeft ? '2px solid #22d3ee' : undefined,
-            borderBottom: corner.borderBottom ? '2px solid #22d3ee' : undefined,
-            borderRight: corner.borderRight ? '2px solid #22d3ee' : undefined,
-          }}
-          animate={{ opacity: [0.5, 1, 0.5] }}
-          transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
-        />
-      ))}
-
-      {/* Center scanning indicator */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <motion.div
-          className="flex flex-col items-center gap-2"
-          animate={{ opacity: [0.5, 1, 0.5] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-        >
-          <div className="flex items-center gap-2 rounded-full border border-cyan-400/50 bg-dark-950/80 backdrop-blur-sm px-4 py-1.5">
-            <motion.div
-              className="w-2 h-2 rounded-full bg-cyan-400"
-              animate={{ scale: [1, 1.5, 1] }}
-              transition={{ duration: 0.8, repeat: Infinity }}
-            />
-            <span className="text-xs text-cyan-400 font-medium">Scanning...</span>
-          </div>
-        </motion.div>
-      </div>
-    </div>
+      {/* Grid overlay */}
+      <View style={styles.gridOverlay} />
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    overflow: 'hidden',
+  },
+  scanLine: {
+    position: 'absolute',
+    left: 0, right: 0,
+    height: 2,
+    backgroundColor: '#06b6d4',
+    shadowColor: '#06b6d4',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  gridOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.05,
+  },
+  corner: {
+    position: 'absolute',
+    width: 20, height: 20,
+    borderColor: '#06b6d4',
+  },
+  topLeft: { top: 8, left: 8, borderTopWidth: 2, borderLeftWidth: 2, borderTopLeftRadius: 4 },
+  topRight: { top: 8, right: 8, borderTopWidth: 2, borderRightWidth: 2, borderTopRightRadius: 4 },
+  bottomLeft: { bottom: 8, left: 8, borderBottomWidth: 2, borderLeftWidth: 2, borderBottomLeftRadius: 4 },
+  bottomRight: { bottom: 8, right: 8, borderBottomWidth: 2, borderRightWidth: 2, borderBottomRightRadius: 4 },
+})

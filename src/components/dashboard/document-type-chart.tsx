@@ -1,73 +1,67 @@
-'use client'
-
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, type TooltipProps } from 'recharts'
+import { View, Text, StyleSheet } from 'react-native'
+import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg'
 import type { DocumentTypeCount } from '@/lib/types'
 
-interface DocumentTypeChartProps {
+interface DocTypeChartProps {
   data: DocumentTypeCount[]
 }
 
-function CustomTooltip({ active, payload }: TooltipProps<number, string>) {
-  if (!active || !payload?.length) return null
-  const item = payload[0]
-  return (
-    <div className="rounded-xl border border-white/15 bg-dark-800/95 backdrop-blur-sm px-3 py-2 shadow-xl">
-      <p className="text-xs text-slate-400">{item.name}</p>
-      <p className="text-sm font-bold" style={{ color: item.payload.color }}>
-        {item.value} docs
-      </p>
-    </div>
-  )
+function polarToXY(cx: number, cy: number, r: number, angle: number) {
+  return {
+    x: cx + r * Math.cos(angle - Math.PI / 2),
+    y: cy + r * Math.sin(angle - Math.PI / 2),
+  }
 }
 
-export function DocumentTypeChart({ data }: DocumentTypeChartProps) {
-  const total = data.reduce((sum, d) => sum + d.count, 0)
+function arcPath(cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
+  const start = polarToXY(cx, cy, r, startAngle)
+  const end = polarToXY(cx, cy, r, endAngle)
+  const large = endAngle - startAngle > Math.PI ? 1 : 0
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`
+}
+
+export function DocumentTypeChart({ data }: DocTypeChartProps) {
+  const total = data.reduce((s, d) => s + d.count, 0) || 1
+  const cx = 70, cy = 70, r = 55, innerR = 32
+  let angle = 0
+
+  const segments = data.map(d => {
+    const slice = (d.count / total) * 2 * Math.PI
+    const path = arcPath(cx, cy, r, angle, angle + slice)
+    angle += slice
+    return { ...d, path }
+  })
 
   return (
-    <div className="flex items-center gap-6">
-      {/* Donut chart */}
-      <div className="relative h-36 w-36 shrink-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              innerRadius={44}
-              outerRadius={64}
-              paddingAngle={2}
-              dataKey="count"
-              nameKey="type"
-            >
-              {data.map((entry, index) => (
-                <Cell key={index} fill={entry.color} opacity={0.85} />
-              ))}
-            </Pie>
-            <Tooltip content={<CustomTooltip />} />
-          </PieChart>
-        </ResponsiveContainer>
-        {/* Center label */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-display text-xl font-bold text-white">{total}</span>
-          <span className="text-xs text-slate-500">Total</span>
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="flex-1 space-y-2">
-        {data.map((item) => (
-          <div key={item.type} className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-              <span className="text-xs text-slate-400 truncate">{item.type}</span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs text-white font-medium">{item.count}</span>
-              <span className="text-xs text-slate-600">{Math.round((item.count / total) * 100)}%</span>
-            </div>
-          </div>
+    <View style={styles.row}>
+      <Svg width={140} height={140}>
+        {segments.map((s, i) => (
+          <Path key={i} d={s.path} fill={s.color} opacity={0.85} />
         ))}
-      </div>
-    </div>
+        {/* Donut hole */}
+        <Circle cx={cx} cy={cy} r={innerR} fill="#0a0f1e" />
+        <Circle cx={cx} cy={cy} r={innerR - 1} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+        <Text>
+        </Text>
+      </Svg>
+      <View style={styles.legend}>
+        {data.slice(0, 5).map((d, i) => (
+          <View key={i} style={styles.legendRow}>
+            <View style={[styles.dot, { backgroundColor: d.color }]} />
+            <Text style={styles.legendLabel} numberOfLines={1}>{d.type}</Text>
+            <Text style={[styles.legendCount, { color: d.color }]}>{d.count}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  legend: { flex: 1, gap: 6 },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  dot: { width: 7, height: 7, borderRadius: 4 },
+  legendLabel: { flex: 1, fontSize: 11, fontFamily: 'Inter-Regular', color: '#94a3b8' },
+  legendCount: { fontSize: 12, fontFamily: 'Inter-SemiBold' },
+})
